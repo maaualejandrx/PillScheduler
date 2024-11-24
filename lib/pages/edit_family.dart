@@ -1,23 +1,37 @@
 import 'package:flutter/material.dart';
 import '/database_helper.dart';
 
-class FamilyForm extends StatefulWidget {
-  const FamilyForm({super.key});
+class EditFamily extends StatefulWidget {
+  final Map<String, dynamic> user;
+
+  const EditFamily({super.key, required this.user});
 
   @override
-  State<FamilyForm> createState() => _FamilyFormState();
+  State<EditFamily> createState() => _EditFamilyState();
 }
 
-class _FamilyFormState extends State<FamilyForm> {
+class _EditFamilyState extends State<EditFamily> {
   final _formKey = GlobalKey<FormState>();
-  String nombre = '';
-  String apellido = '';
-  String edad = '';
-  String genero = 'Masculino';
-  String alergias = '';
+  late String nombre;
+  late String apellido;
+  late String edad;
+  late String genero;
+  late String alergias;
 
-  Future<void> _saveToDatabase() async {
-    final user = {
+  @override
+  void initState() {
+    super.initState();
+    // Inicializar los campos con los datos del usuario
+    nombre = widget.user['nombre'];
+    apellido = widget.user['apellido'];
+    edad = widget.user['edad'].toString();
+    genero = widget.user['genero'];
+    alergias = widget.user['alergias'] ?? '';
+  }
+
+  Future<void> _updateUser() async {
+    final updatedUser = {
+      'id': widget.user['id'],
       'nombre': nombre,
       'apellido': apellido,
       'edad': int.parse(edad),
@@ -26,10 +40,19 @@ class _FamilyFormState extends State<FamilyForm> {
     };
 
     try {
-      await DatabaseHelper.instance.insertUser(user);
+      await DatabaseHelper.instance.updateUser(updatedUser);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Datos actualizados con éxito'),
+        ),
+      );
+      Navigator.pop(context, true); // Regresar con un resultado
     } catch (e) {
-      print('Error al guardar en la base de datos: $e');
-      throw Exception('Error al insertar en la base de datos');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error al actualizar los datos'),
+        ),
+      );
     }
   }
 
@@ -37,7 +60,7 @@ class _FamilyFormState extends State<FamilyForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Agregar Miembro de la Familia'),
+        title: const Text('Editar Miembro de la Familia'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -47,15 +70,15 @@ class _FamilyFormState extends State<FamilyForm> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                "Ingrese los datos de la persona que desea registrar:",
+                "Actualiza los datos de la persona:",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
               // Campo: Nombre
               TextFormField(
+                initialValue: nombre,
                 decoration: const InputDecoration(
                   labelText: "Nombre",
-                  hintText: "Ingresa tu nombre",
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
@@ -73,9 +96,9 @@ class _FamilyFormState extends State<FamilyForm> {
               const SizedBox(height: 20),
               // Campo: Apellido
               TextFormField(
+                initialValue: apellido,
                 decoration: const InputDecoration(
                   labelText: "Apellido",
-                  hintText: "Ingresa tu apellido",
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
@@ -93,9 +116,9 @@ class _FamilyFormState extends State<FamilyForm> {
               const SizedBox(height: 20),
               // Campo: Edad
               TextFormField(
+                initialValue: edad,
                 decoration: const InputDecoration(
                   labelText: "Edad",
-                  hintText: "Ingresa tu edad con número",
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
@@ -148,9 +171,9 @@ class _FamilyFormState extends State<FamilyForm> {
               const SizedBox(height: 20),
               // Campo: Alergias
               TextFormField(
+                initialValue: alergias,
                 decoration: const InputDecoration(
                   labelText: "Alergias",
-                  hintText: "Ingresa si tienes alguna/s alergia/s",
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) {
@@ -160,26 +183,12 @@ class _FamilyFormState extends State<FamilyForm> {
                 },
               ),
               const SizedBox(height: 30),
-              // Botón: Registrar
+              // Botón: Guardar Cambios
               Center(
                 child: ElevatedButton(
                   onPressed: () async {
                     if (_formKey.currentState!.validate()) {
-                      try {
-                        await _saveToDatabase();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Registro guardado con éxito'),
-                          ),
-                        );
-                        Navigator.pop(context, true); // Enviar resultado true al regresar
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Error al guardar en la base de datos'),
-                          ),
-                        );
-                      }
+                      await _updateUser();
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -189,7 +198,7 @@ class _FamilyFormState extends State<FamilyForm> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: const Text("Registrar"),
+                  child: const Text("Guardar Cambios"),
                 ),
               ),
             ],

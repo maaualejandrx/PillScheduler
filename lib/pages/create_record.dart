@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '/database_helper.dart';
 
 class CreateRecord extends StatefulWidget {
   const CreateRecord({super.key});
@@ -12,8 +13,25 @@ class _CreateRecordState extends State<CreateRecord> {
 
   String nombre = '';
   String cantidad = '';
-  String asignado = 'Luz'; // Valor inicial del DropdownButton
-  String frecuencia = '4 horas'; // Valor inicial para frecuencia
+  String? asignado;
+  String frecuencia = '4 horas';
+  List<Map<String, dynamic>> _familyMembers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFamilyMembers();
+  }
+
+  Future<void> _loadFamilyMembers() async {
+    final members = await DatabaseHelper.instance.getUsers();
+    setState(() {
+      _familyMembers = members;
+      if (_familyMembers.isNotEmpty) {
+        asignado = '${_familyMembers[0]['id']}-${_familyMembers[0]['nombre']}';
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +39,6 @@ class _CreateRecordState extends State<CreateRecord> {
       appBar: AppBar(
         title: const Text('Crear recordatorio'),
       ),
-      resizeToAvoidBottomInset: false, // Evita que el diseño se ajuste con el teclado
       body: Stack(
         children: [
           SingleChildScrollView(
@@ -36,110 +53,60 @@ class _CreateRecordState extends State<CreateRecord> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-                  // Campo: Nombre
                   TextFormField(
                     decoration: const InputDecoration(
                       labelText: "Nombre",
                       hintText: "Nombre del medicamento",
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        nombre = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese el nombre del medicamento';
-                      }
-                      return null;
-                    },
+                    onChanged: (value) => nombre = value,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Ingrese el nombre' : null,
                   ),
                   const SizedBox(height: 20),
-                  // Campo: Cantidad
                   TextFormField(
                     decoration: const InputDecoration(
                       labelText: "Cantidad",
                       hintText: "Cantidad (ej. 1 pastilla)",
                       border: OutlineInputBorder(),
                     ),
-                    onChanged: (value) {
-                      setState(() {
-                        cantidad = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese la cantidad';
-                      }
-                      return null;
-                    },
+                    onChanged: (value) => cantidad = value,
+                    validator: (value) =>
+                        value == null || value.isEmpty ? 'Ingrese la cantidad' : null,
                   ),
                   const SizedBox(height: 20),
-                  // DropdownButton: Asignado a
-                  const Text(
-                    "Asignado a:",
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  const Text("Asignado a:", style: TextStyle(fontSize: 16)),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: asignado,
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'Luz',
-                        child: Text('Luz'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'Mau',
-                        child: Text('Mau'),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        asignado = value!;
-                      });
-                    },
+                    items: _familyMembers
+                        .map((member) => DropdownMenuItem(
+                              value: '${member['id']}-${member['nombre']}',
+                              child: Text('${member['nombre']} ${member['apellido']}'),
+                            ))
+                        .toList(),
+                    onChanged: (value) => asignado = value,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12),
                     ),
+                    validator: (value) => value == null
+                        ? 'Seleccione un miembro de la familia'
+                        : null,
                   ),
                   const SizedBox(height: 20),
-                  // DropdownButton: Frecuencia
-                  const Text(
-                    "Frecuencia:",
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  const Text("Frecuencia:", style: TextStyle(fontSize: 16)),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
                     value: frecuencia,
                     items: const [
-                      DropdownMenuItem(
-                        value: '4 horas',
-                        child: Text('4 horas'),
-                      ),
-                      DropdownMenuItem(
-                        value: '6 horas',
-                        child: Text('6 horas'),
-                      ),
-                      DropdownMenuItem(
-                        value: '8 horas',
-                        child: Text('8 horas'),
-                      ),
-                      DropdownMenuItem(
-                        value: '12 horas',
-                        child: Text('12 horas'),
-                      ),
-                      DropdownMenuItem(
-                        value: '24 horas',
-                        child: Text('24 horas'),
-                      ),
+                      DropdownMenuItem(value: '4 horas', child: Text('4 horas')),
+                      DropdownMenuItem(value: '6 horas', child: Text('6 horas')),
+                      DropdownMenuItem(value: '8 horas', child: Text('8 horas')),
+                      DropdownMenuItem(value: '12 horas', child: Text('12 horas')),
+                      DropdownMenuItem(value: '24 horas', child: Text('24 horas')),
                     ],
-                    onChanged: (value) {
-                      setState(() {
-                        frecuencia = value!;
-                      });
-                    },
+                    onChanged: (value) => frecuencia = value!,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12),
@@ -149,24 +116,37 @@ class _CreateRecordState extends State<CreateRecord> {
               ),
             ),
           ),
-          // Botón flotante fijo
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: FloatingActionButton.extended(
-                onPressed: () {
+              child: ElevatedButton.icon(
+                onPressed: () async {
                   if (_formKey.currentState!.validate()) {
+                    final reminder = {
+                      'nombre': nombre,
+                      'cantidad': cantidad,
+                      'frecuencia': frecuencia,
+                      'id_user': asignado!.split('-')[0],
+                    };
+                    await DatabaseHelper.instance.insertReminder(reminder);
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Recordatorio creado con éxito'),
-                      ),
+                      const SnackBar(content: Text('Recordatorio creado con éxito')),
                     );
+                 Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+
                   }
                 },
+                icon: const Icon(Icons.save),
                 label: const Text('Guardar'),
-                icon: const Icon(Icons.alarm),
-                backgroundColor: Colors.orange,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 50, vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
               ),
             ),
           ),

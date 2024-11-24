@@ -4,7 +4,7 @@ import 'package:flutter_application_1/pages/create_record.dart';
 import 'package:flutter_application_1/pages/home_page.dart';
 
 class WidgetMap extends StatefulWidget {
-  const WidgetMap({Key? key}) : super(key: key);
+  const WidgetMap({super.key});
 
   @override
   State<WidgetMap> createState() => _WidgetMapState();
