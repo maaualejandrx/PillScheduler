@@ -46,17 +46,10 @@ class _CreateFamilyState extends State<CreateFamily> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Listado Familia'),
+        title: const Text('Listado de Familia'),
       ),
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Listado de Familiares',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ),
           Expanded(
             child: _familyMembers.isEmpty
                 ? const Center(

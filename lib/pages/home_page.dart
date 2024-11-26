@@ -79,13 +79,6 @@ class _HomePageState extends State<HomePage> {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/createRecord')
-              .then((_) => _loadReminders());
-        },
-        child: const Icon(Icons.add_alarm),
-      ),
     );
   }
 }
