@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '/database_helper.dart';
+import 'edit_reminder.dart'; // Asegúrate de importar la pantalla de edición
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,12 +26,36 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteReminder(int id) async {
-    await DatabaseHelper.instance.deleteReminder(id);
-    _loadReminders();
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirmar eliminación'),
+          content: const Text(
+              '¿Estás seguro de que quieres eliminar este recordatorio?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete == true) {
+      await DatabaseHelper.instance.deleteReminder(id);
+      _loadReminders();
+    }
   }
 
   Future<void> _toggleReminderStatus(int id, bool isActive) async {
-    await DatabaseHelper.instance.updateReminderStatus(id, isActive ? 1 : 0);
+    await DatabaseHelper.instance
+        .updateReminderStatus(id, (isActive ? 1 : 0) as Map<String, dynamic>);
     _loadReminders();
   }
 
@@ -56,10 +81,32 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Cantidad: ${reminder['cantidad']}'),
-                        Text('Frecuencia: ${reminder['frecuencia']}'),
+                        Text('Frecuencia: ${reminder['frecuencia']} horas'),
                         Text('Asignado a: ${reminder['asignado']}'),
+                        Text('Hora de inicio: ${reminder['hora_inicio']}'),
+                        Text('Días para tomar: ${reminder['dias_medicacion']}'),
                       ],
                     ),
+                    onLongPress: () async {
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditReminder(
+                            reminderId: reminder['id'],
+                            nombre: reminder['nombre'],
+                            cantidad: reminder['cantidad'],
+                            frecuencia: reminder['frecuencia'], 
+                            asignado: reminder['id_user'].toString(),
+                            diasMedicacion: reminder['dias_medicacion'],
+                            horaInicio: reminder['hora_inicio'],
+                            recordar: reminder['recordar'],
+                          ),
+                        ),
+                      );
+                      if (result == true) {
+                        _loadReminders(); // Recarga la lista después de editar
+                      }
+                    },
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

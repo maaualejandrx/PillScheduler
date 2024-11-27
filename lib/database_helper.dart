@@ -21,11 +21,11 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2, // Incrementar versión para realizar migración
+      version: 3, // Incrementar versión para realizar migración
       onCreate: (db, version) async {
         print("Creando base de datos en: $path");
 
-        await db.execute('''
+        await db.execute(''' 
           CREATE TABLE usuarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
@@ -42,20 +42,30 @@ class DatabaseHelper {
             nombre TEXT NOT NULL,
             cantidad TEXT NOT NULL,
             id_user INTEGER NOT NULL,
-            frecuencia TEXT NOT NULL,
-            activo INTEGER DEFAULT 0, -- Columna para activar/desactivar recordatorios
+            frecuencia INTEGER NOT NULL,  -- Cambiado a INTEGER
+            activo INTEGER DEFAULT 0,
+            dias_medicacion INTEGER DEFAULT 1, -- Cambiado a INTEGER
+            hora_inicio TEXT, -- Hora de inicio en formato HH:mm
+            recordar INTEGER DEFAULT 0, -- 0 para "Cuando sea la hora", 1 para "5 minutos antes"
             FOREIGN KEY (id_user) REFERENCES usuarios (id)
           )
         ''');
+
         print("Base de datos creada exitosamente.");
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // Agregar columna 'activo' si la base de datos ya existe
-          await db.execute('''
-            ALTER TABLE recordatorios ADD COLUMN activo INTEGER DEFAULT 0
+        if (oldVersion < 3) {
+          // Añadir las nuevas columnas a la tabla 'recordatorios'
+          await db.execute(''' 
+            ALTER TABLE recordatorios ADD COLUMN dias_medicacion INTEGER DEFAULT 1
           ''');
-          print("Columna 'activo' añadida a la tabla 'recordatorios'.");
+          await db.execute(''' 
+            ALTER TABLE recordatorios ADD COLUMN hora_inicio TEXT
+          ''');
+          await db.execute(''' 
+            ALTER TABLE recordatorios ADD COLUMN recordar INTEGER DEFAULT 0
+          ''');
+          print("Nuevas columnas añadidas a la tabla 'recordatorios'.");
         }
       },
     );
@@ -116,13 +126,14 @@ class DatabaseHelper {
     ''');
   }
 
-  Future<int> updateReminderStatus(int id, int status) async {
-    final db = await database;
-    return await db.update(
-      'recordatorios',
-      {'activo': status},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
+  Future<int> updateReminderStatus(int id, Map<String, dynamic> reminder) async {
+  final db = await database;
+  return await db.update(
+    'recordatorios',
+    reminder,
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
+
 }

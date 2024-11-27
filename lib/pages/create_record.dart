@@ -14,8 +14,11 @@ class _CreateRecordState extends State<CreateRecord> {
   String nombre = '';
   String cantidad = '';
   String? asignado;
-  String frecuencia = '4 horas';
+  int frecuencia = 4; // Ahora es un entero
   List<Map<String, dynamic>> _familyMembers = [];
+  int diasMedicacion = 1; // Campo para ingresar los días para tomar medicación
+  TimeOfDay? horaInicio; // Campo para hora de inicio
+  int recordar = 0; // 0 para "Cuando sea la hora", 1 para "5 minutos antes"
 
   @override
   void initState() {
@@ -33,11 +36,23 @@ class _CreateRecordState extends State<CreateRecord> {
     });
   }
 
+  // Función para seleccionar la hora de inicio
+  Future<void> _selectHoraInicio(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: horaInicio ?? TimeOfDay.now(),
+    );
+    if (picked != null && picked != horaInicio) {
+      setState(() {
+        horaInicio = picked;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset:
-          true, // Permite el ajuste de la pantalla cuando aparece el teclado
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Crear recordatorio'),
       ),
@@ -99,37 +114,120 @@ class _CreateRecordState extends State<CreateRecord> {
               const SizedBox(height: 20),
               const Text("Frecuencia:", style: TextStyle(fontSize: 16)),
               const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                value: frecuencia,
-                items: const [
-                  DropdownMenuItem(value: '4 horas', child: Text('4 horas')),
-                  DropdownMenuItem(value: '6 horas', child: Text('6 horas')),
-                  DropdownMenuItem(value: '8 horas', child: Text('8 horas')),
-                  DropdownMenuItem(value: '12 horas', child: Text('12 horas')),
-                  DropdownMenuItem(value: '24 horas', child: Text('24 horas')),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: frecuencia,
+                      items: const [
+                        DropdownMenuItem(value: 4, child: Text('4 horas')),
+                        DropdownMenuItem(value: 6, child: Text('6 horas')),
+                        DropdownMenuItem(value: 8, child: Text('8 horas')),
+                        DropdownMenuItem(value: 12, child: Text('12 horas')),
+                        DropdownMenuItem(value: 24, child: Text('24 horas')),
+                      ],
+                      onChanged: (value) => setState(() => frecuencia = value!),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20), // Espacio entre los dos campos
+                  // Botón para ingresar días para tomar medicación
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Días para tomar medicación:",
+                          style: TextStyle(fontSize: 16)),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove),
+                            onPressed: () {
+                              setState(() {
+                                if (diasMedicacion > 1) {
+                                  diasMedicacion--;
+                                }
+                              });
+                            },
+                          ),
+                          Text(
+                            '$diasMedicacion día(s)',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.add),
+                            onPressed: () {
+                              setState(() {
+                                diasMedicacion++;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ],
-                onChanged: (value) => frecuencia = value!,
+              ),
+              const SizedBox(height: 20),
+              // Hora de inicio
+              const Text("Hora de inicio:", style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () => _selectHoraInicio(context),
+                child: AbsorbPointer(
+                  child: TextFormField(
+                    decoration: InputDecoration(
+                      labelText: horaInicio == null
+                          ? 'Seleccionar hora de inicio'
+                          : 'Hora seleccionada: ${horaInicio!.format(context)}',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: const Icon(Icons.access_time),
+                    ),
+                    controller: TextEditingController(
+                        text: horaInicio == null
+                            ? ''
+                            : horaInicio!.format(context)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Opción de recordar
+              const Text("Recordar:", style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: recordar,
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('Cuando sea la hora')),
+                  DropdownMenuItem(value: 1, child: Text('5 minutos antes')),
+                ],
+                onChanged: (value) => setState(() => recordar = value!),
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
               ),
-              const SizedBox(
-                  height:
-                      50), // Espacio extra para asegurar que el botón no se solape
+              const SizedBox(height: 50),
               // El ElevatedButton en lugar del FloatingActionButton
               Center(
                 child: Tooltip(
-                  message:
-                      'Guardar Recordatorio', // El texto que aparecerá cuando se mantenga presionado el botón
+                  message: 'Guardar Recordatorio',
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       if (_formKey.currentState!.validate()) {
                         final reminder = {
                           'nombre': nombre,
                           'cantidad': cantidad,
-                          'frecuencia': frecuencia,
+                          'frecuencia': frecuencia, // Guardado como entero
                           'id_user': asignado!.split('-')[0],
+                          'dias_medicacion':
+                              diasMedicacion, // Guardado como entero
+                          'hora_inicio': horaInicio != null
+                              ? '${horaInicio!.hour}:${horaInicio!.minute}'
+                              : null,
+                          'recordar': recordar, // Guardado como entero
                         };
                         await DatabaseHelper.instance.insertReminder(reminder);
                         ScaffoldMessenger.of(context).showSnackBar(
