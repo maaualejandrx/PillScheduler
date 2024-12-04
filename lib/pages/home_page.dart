@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '/database_helper.dart';
-import 'edit_reminder.dart'; // Asegúrate de importar la pantalla de edición
+import 'edit_reminder.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -54,8 +54,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _toggleReminderStatus(int id, bool isActive) async {
-    await DatabaseHelper.instance
-        .updateReminderStatus(id, (isActive ? 1 : 0) as Map<String, dynamic>);
+    await DatabaseHelper.instance.updateReminderStatus(
+      id,
+      {'activo': isActive ? 1 : 0},
+    );
     _loadReminders();
   }
 
@@ -81,10 +83,12 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Cantidad: ${reminder['cantidad']}'),
-                        Text('Frecuencia: ${reminder['frecuencia']} horas'),
-                        Text('Asignado a: ${reminder['asignado']}'),
-                        Text('Hora de inicio: ${reminder['hora_inicio']}'),
-                        Text('Días para tomar: ${reminder['dias_medicacion']}'),
+                        Text(
+                            'Frecuencia: ${int.tryParse(reminder['frecuencia'].toString()) ?? 0} horas'),
+                        Text('Asignado a: ${reminder['asignado'] ?? 'No asignado'}'),
+                        Text('Hora de inicio: ${reminder['hora_inicio'] ?? 'No especificada'}'),
+                        Text(
+                            'Días para tomar: ${reminder['dias_medicacion'] ?? 1}'),
                       ],
                     ),
                     onLongPress: () async {
@@ -95,11 +99,15 @@ class _HomePageState extends State<HomePage> {
                             reminderId: reminder['id'],
                             nombre: reminder['nombre'],
                             cantidad: reminder['cantidad'],
-                            frecuencia: reminder['frecuencia'], 
+                            frecuencia: int.tryParse(
+                                    reminder['frecuencia'].toString()) ??
+                                0,
                             asignado: reminder['id_user'].toString(),
-                            diasMedicacion: reminder['dias_medicacion'],
+                            diasMedicacion:
+                                int.tryParse(reminder['dias_medicacion'].toString()) ??
+                                    1,
                             horaInicio: reminder['hora_inicio'],
-                            recordar: reminder['recordar'],
+                            recordar: int.tryParse(reminder['recordar'].toString()) ?? 0,
                           ),
                         ),
                       );
@@ -111,7 +119,7 @@ class _HomePageState extends State<HomePage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Switch(
-                          value: reminder['activo'] == 1,
+                          value: reminder['activo'] == 1 ? true : false,
                           onChanged: (value) {
                             _toggleReminderStatus(reminder['id'], value);
                           },
