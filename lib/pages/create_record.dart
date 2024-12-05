@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:timezone/timezone.dart' as tz;
 import '/database_helper.dart';
+import '/notification_service.dart';
 
 class CreateRecord extends StatefulWidget {
   const CreateRecord({super.key});
@@ -14,11 +16,11 @@ class _CreateRecordState extends State<CreateRecord> {
   String nombre = '';
   String cantidad = '';
   String? asignado;
-  int frecuencia = 4; // Valor predeterminado
+  int frecuencia = 4; // Frecuencia en horas
   List<Map<String, dynamic>> _familyMembers = [];
-  int diasMedicacion = 1; // Valor predeterminado
-  TimeOfDay? horaInicio; // Valor opcional
-  int recordar = 0; // 0: "Cuando sea la hora", 1: "5 minutos antes"
+  int diasMedicacion = 1; // Días para tomar la medicación
+  TimeOfDay? horaInicio; // Hora de inicio
+  int recordar = 0; // 0: a la hora exacta, 1: 5 minutos antes
 
   @override
   void initState() {
@@ -36,23 +38,75 @@ class _CreateRecordState extends State<CreateRecord> {
     });
   }
 
-  // Seleccionar la hora de inicio
   Future<void> _selectHoraInicio(BuildContext context) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: horaInicio ?? TimeOfDay.now(),
     );
-    if (picked != null && picked != horaInicio) {
+    if (picked != null) {
       setState(() {
         horaInicio = picked;
       });
     }
   }
 
+  /// Genera un ID único para las notificaciones
+  int _generateNotificationId(DateTime time, int recordatorioId) {
+    return (recordatorioId + time.millisecondsSinceEpoch) % 1000000;
+  }
+
+  /// Programa las notificaciones
+  Future<void> _scheduleNotifications(
+    int recordatorioId,
+    String usuario,
+    String medicamento,
+    String cantidad,
+    TimeOfDay horaInicio,
+    int frecuencia,
+    int diasMedicacion,
+    int recordar,
+  ) async {
+    final now = DateTime.now();
+
+    DateTime nextNotificationTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      horaInicio.hour,
+      horaInicio.minute,
+    );
+
+    if (nextNotificationTime.isBefore(now)) {
+      nextNotificationTime = nextNotificationTime.add(Duration(hours: frecuencia));
+    }
+
+    await NotificationService.showNotification(
+      id: _generateNotificationId(now, recordatorioId),
+      title: "¡No olvides tomar tu medicación!",
+      body: "$usuario, no olvides tomar tu medicación en las próximas $frecuencia horas.",
+    );
+
+    final DateTime endDate = nextNotificationTime.add(Duration(days: diasMedicacion));
+
+    while (nextNotificationTime.isBefore(endDate)) {
+      final adjustedTime = recordar == 1
+          ? nextNotificationTime.subtract(const Duration(minutes: 5))
+          : nextNotificationTime;
+
+      await NotificationService.scheduleNotification(
+        id: _generateNotificationId(nextNotificationTime, recordatorioId),
+        title: "Es hora de tu medicación",
+        body: "$usuario debe tomar ($cantidad) de $medicamento.",
+        scheduledTime: tz.TZDateTime.from(adjustedTime, tz.local),
+      );
+
+      nextNotificationTime = nextNotificationTime.add(Duration(hours: frecuencia));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: const Text('Crear recordatorio'),
       ),
@@ -70,8 +124,8 @@ class _CreateRecordState extends State<CreateRecord> {
               const SizedBox(height: 20),
               TextFormField(
                 decoration: const InputDecoration(
-                  labelText: "Nombre",
-                  hintText: "Nombre del medicamento",
+                  labelText: "Nombre del medicamento",
+                  hintText: "Ej. Paracetamol",
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) => nombre = value,
@@ -82,7 +136,7 @@ class _CreateRecordState extends State<CreateRecord> {
               TextFormField(
                 decoration: const InputDecoration(
                   labelText: "Cantidad",
-                  hintText: "Cantidad (ej. 500mg)",
+                  hintText: "Ej. 500mg",
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (value) => cantidad = value,
@@ -91,13 +145,13 @@ class _CreateRecordState extends State<CreateRecord> {
               ),
               const SizedBox(height: 20),
               const Text("Asignado a:", style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 10),
               DropdownButtonFormField<String>(
                 value: asignado,
                 items: _familyMembers
                     .map((member) => DropdownMenuItem(
                           value: '${member['id']}-${member['nombre']}',
-                          child: Text('${member['nombre']} ${member['apellido']}'),
+                          child:
+                              Text('${member['nombre']} ${member['apellido']}'),
                         ))
                     .toList(),
                 onChanged: (value) => asignado = value,
@@ -109,27 +163,52 @@ class _CreateRecordState extends State<CreateRecord> {
                     value == null ? 'Seleccione un miembro de la familia' : null,
               ),
               const SizedBox(height: 20),
-              const Text("Frecuencia:", style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<int>(
-                value: frecuencia,
-                items: const [
-                  DropdownMenuItem(value: 4, child: Text('4 horas')),
-                  DropdownMenuItem(value: 6, child: Text('6 horas')),
-                  DropdownMenuItem(value: 8, child: Text('8 horas')),
-                  DropdownMenuItem(value: 12, child: Text('12 horas')),
-                  DropdownMenuItem(value: 24, child: Text('24 horas')),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: frecuencia,
+                      items: const [
+                        DropdownMenuItem(value: 4, child: Text('4 horas')),
+                        DropdownMenuItem(value: 6, child: Text('6 horas')),
+                        DropdownMenuItem(value: 8, child: Text('8 horas')),
+                        DropdownMenuItem(value: 12, child: Text('12 horas')),
+                        DropdownMenuItem(value: 24, child: Text('24 horas')),
+                      ],
+                      onChanged: (value) => setState(() => frecuencia = value!),
+                      decoration: const InputDecoration(
+                        labelText: "Frecuencia",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        onPressed: () {
+                          setState(() {
+                            if (diasMedicacion > 1) diasMedicacion--;
+                          });
+                        },
+                      ),
+                      Text('$diasMedicacion día(s)',
+                          style: const TextStyle(fontSize: 16)),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed: () {
+                          setState(() {
+                            diasMedicacion++;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                 ],
-                onChanged: (value) => setState(() => frecuencia = value!),
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                ),
               ),
               const SizedBox(height: 20),
-              // Hora de inicio
-              const Text("Hora de inicio:", style: TextStyle(fontSize: 16)),
-              const SizedBox(height: 10),
               GestureDetector(
                 onTap: () => _selectHoraInicio(context),
                 child: AbsorbPointer(
@@ -142,9 +221,24 @@ class _CreateRecordState extends State<CreateRecord> {
                       suffixIcon: const Icon(Icons.access_time),
                     ),
                     controller: TextEditingController(
-                      text: horaInicio == null ? '' : horaInicio!.format(context),
-                    ),
+                        text: horaInicio == null
+                            ? ''
+                            : horaInicio!.format(context)),
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text("Recordar:", style: TextStyle(fontSize: 16)),
+              DropdownButtonFormField<int>(
+                value: recordar,
+                items: const [
+                  DropdownMenuItem(value: 0, child: Text('Cuando sea la hora')),
+                  DropdownMenuItem(value: 1, child: Text('5 minutos antes')),
+                ],
+                onChanged: (value) => setState(() => recordar = value!),
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
               ),
               const SizedBox(height: 50),
@@ -155,7 +249,7 @@ class _CreateRecordState extends State<CreateRecord> {
                       final reminder = {
                         'nombre': nombre,
                         'cantidad': cantidad,
-                        'frecuencia': frecuencia, // Asegurado como entero
+                        'frecuencia': frecuencia,
                         'id_user': asignado!.split('-')[0],
                         'dias_medicacion': diasMedicacion,
                         'hora_inicio': horaInicio != null
@@ -163,17 +257,36 @@ class _CreateRecordState extends State<CreateRecord> {
                             : null,
                         'recordar': recordar,
                       };
-                      await DatabaseHelper.instance.insertReminder(reminder);
+
+                      final recordatorioId = await DatabaseHelper.instance
+                          .insertReminder(reminder);
+
+                      final usuario = asignado!.split('-')[1];
+
+                      if (horaInicio != null) {
+                        await _scheduleNotifications(
+                          recordatorioId,
+                          usuario,
+                          nombre,
+                          cantidad,
+                          horaInicio!,
+                          frecuencia,
+                          diasMedicacion,
+                          recordar,
+                        );
+                      }
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text('Recordatorio creado con éxito')),
+                          content: Text('Recordatorio creado con éxito'),
+                        ),
                       );
                       Navigator.of(context)
                           .pushNamedAndRemoveUntil('/', (route) => false);
                     }
                   },
                   icon: const Icon(Icons.save),
-                  label: const Text('Guardar'),
+                  label: const Text('Guardar Recordatorio'),
                 ),
               ),
             ],

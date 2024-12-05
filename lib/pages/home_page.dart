@@ -19,11 +19,16 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadReminders() async {
-    final reminders = await DatabaseHelper.instance.getDetailedReminders();
-    setState(() {
-      _reminders = reminders;
-    });
-  }
+  final reminders = await DatabaseHelper.instance.getDetailedReminders();
+  
+  // Verifica si el widget está montado antes de llamar a setState
+  if (!mounted) return;
+
+  setState(() {
+    _reminders = reminders;
+  });
+}
+
 
   Future<void> _deleteReminder(int id) async {
     final shouldDelete = await showDialog<bool>(
